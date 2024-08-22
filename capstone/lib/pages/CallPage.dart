@@ -14,11 +14,13 @@ import 'package:http/http.dart' as http;
 Future<String> getResponse(String inputText, User user) async {
   Stopwatch stopwatch = new Stopwatch()..start();
 
-  String url = appStateSettings["backend-ip"] + '/response';
+  String url = "http://172.20.10.3:5001" + '/response';
+
+  print(url);
 
   Map data = {'input_text': inputText};
   String body = json.encode(data);
-  // debugPrint(body);
+  debugPrint(body);
 
   var response = await http.post(
     Uri.parse(url),
@@ -86,6 +88,8 @@ List<String> orderIntents(List<dynamic> intents) {
 String? getRandomQuestion(User user) {
   List<String> questionIDs = responses["Prompts"]!.keys.toList();
   questionIDs.shuffle();
+  print(questionIDs);
+  print(user.recordings);
   for (String responseID in questionIDs) {
     if (user.recordings[responseID] != null) {
       return responseID.toString();
@@ -109,6 +113,7 @@ class _CallPageState extends State<CallPage> {
   bool callLoading = true;
   stt.SpeechToText speech = stt.SpeechToText();
   bool isAvailable = false;
+  bool isListening = false;
   bool isMutedFrontEnd = false;
   String lastRecognizedText = "";
   String textStream = "";
@@ -124,6 +129,7 @@ class _CallPageState extends State<CallPage> {
       Debouncer(milliseconds: int.parse(appStateSettings["duration-wait"]));
   Timer? callLoadingTimer;
   Timer? playOpeningTimer;
+
   @override
   void didUpdateWidget(CallPage oldWidget) {
     debugPrint("Loaded page");
@@ -138,6 +144,7 @@ class _CallPageState extends State<CallPage> {
         user = widget.user;
         selectedId = null;
         isPlayingRecording = false;
+        isListening = false;
         hasFinishedOneRecognition = false;
       });
 
@@ -171,6 +178,7 @@ class _CallPageState extends State<CallPage> {
         setState(() {
           isAvailable = true;
         });
+
         _startRecordingLoop();
       } else {
         setState(() {
@@ -182,7 +190,13 @@ class _CallPageState extends State<CallPage> {
 
   _startRecordingLoop() async {
     while (true) {
-      await Future.delayed(const Duration(milliseconds: 100), () {
+      await Future.delayed(const Duration(milliseconds: 1000), () {
+        if (user == null) {
+          return;
+        }
+
+        // print('Start Recording Loop');
+
         if (callLoading == false &&
             (isPlayingRecording == true || lastRecognizedText != "")) {
           _silenceDebouncer.run(() {
@@ -190,8 +204,10 @@ class _CallPageState extends State<CallPage> {
           });
         }
         if (callLoading == false &&
-            isPlayingRecording == false &&
+            isPlayingRecording == false && !isListening && selectedId == null &&
             user != null) {
+              // isListening = true;
+          print('Start Listening');
           speech.listen(
             onResult: (result) {
               _silenceDebouncer.run(() {
@@ -199,13 +215,15 @@ class _CallPageState extends State<CallPage> {
                   playRandomQuestion();
                 }
               });
-              // print(result.recognizedWords);
+              print(result.recognizedWords);
               if (!isMutedFrontEnd) {
                 setState(() {
                   textStream = result.recognizedWords;
                 });
               }
               if (result.finalResult) {
+                print("Final Result");
+
                 if (!isMutedFrontEnd) {
                   setState(() {
                     lastRecognizedText =
@@ -221,7 +239,7 @@ class _CallPageState extends State<CallPage> {
                 }
               });
             },
-            partialResults: true,
+            // partialResults: true,
           );
         }
       });
@@ -308,17 +326,23 @@ class _CallPageState extends State<CallPage> {
 
   Future<bool> _determineWhatToPlay(inputText) async {
     try {
+      print(lastRecognizedText);
+      print(selectedId);
       if (lastRecognizedText != "" && selectedId == null) {
         isPlayingRecording = true;
         lastRecognizedText = "";
         speech.cancel();
         if (isMutedFrontEnd == false) {
-          print(inputText);
+          debugPrint(inputText);
+          debugPrint("Determine what to play");
           String selectedIdResponse = await getResponse(inputText, user!);
-          // print(selectedIdResponse);
+          
           print("Chosen response based on available recordings:");
+          print(selectedIdResponse);
           print(findResponseId(selectedIdResponse)!);
+          print(user?.recordings);
           if (selectedId == null) {
+            speech.cancel();
             setState(() {
               selectedId = selectedIdResponse;
             });
@@ -422,7 +446,9 @@ class _CallPageState extends State<CallPage> {
                       key: const ValueKey(1),
                       filePath: user!.recordings[selectedId]!,
                       isLooping: false,
+                      initializeFirst: false,
                       onFinishPlayback: () {
+                        print('Finish Playing');
                         if (appStateSettings["q-after-ackowledge"] == "true" &&
                             getCategoryByKey(selectedId) ==
                                 "Acknowledgements") {
@@ -484,6 +510,21 @@ class _CallPageState extends State<CallPage> {
               },
               child: const Icon(
                 CupertinoIcons.switch_camera_solid,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            CupertinoButton(
+              borderRadius: BorderRadius.circular(50),
+              minSize: 65,
+              padding: EdgeInsets.zero,
+              color: getColor(context, "gray"),
+              onPressed: () {
+                lastRecognizedText = textStream;
+                _determineWhatToPlay(lastRecognizedText);
+              },
+              child: const Icon(
+                CupertinoIcons.arrow_up_circle,
                 color: Colors.white,
                 size: 24,
               ),

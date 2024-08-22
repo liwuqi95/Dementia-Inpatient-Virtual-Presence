@@ -40,9 +40,14 @@ dependencies:
   shared_preferences: ^2.0.13
   animations: ^2.0.1
   camera: ^0.10.3+2
-  speech_to_text: ^6.1.0
+  speech_to_text: ^6.6.0
   record: ^4.4.4
   video_player: ^2.4.10
+  
+dependency_overrides:
+  package_info_plus: ^4.0.1
+  wakelock_windows: any
+  win32: any
 
 dev_dependencies:
   flutter_test:

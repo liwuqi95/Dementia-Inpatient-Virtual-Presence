@@ -18,7 +18,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   cameras = await availableCameras();
   await initializeDatabase();
+  
+  debugPrint('Start Initialize Setting');
   await initializeSettings();
+  debugPrint('Finish Initialize Setting');
   runApp(const PageScaffold());
   // initNotificationListener();
 }
@@ -70,7 +73,7 @@ Map<String, dynamic> getSettingConstants(Map<String, dynamic> userSettings) {
 Future<Map<String, dynamic>> getUserSettings() async {
   Map<String, dynamic> userPreferencesDefault = {
     "theme": "system",
-    "backend-ip": "http://192.168.2.68:5000",
+    "backend-ip": "http://172.20.10.3:5001",
     "duration-listen": "3500",
     "duration-wait": "10500",
     "overlay-position-x": "-1",
